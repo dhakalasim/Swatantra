@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: swatantra-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-swatantra}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swatantra-network
+
+  # Ollama (for offline LLM)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: swatantra-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - swatantra-network
+    # Optional: Pull model on startup
+    # entrypoint: ["ollama", "pull", "mistral"]
+
+  # Swatantra Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swatantra-backend
+    environment:
+      DEBUG: ${DEBUG:-False}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DB_TYPE: ${DB_TYPE:-postgresql}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-swatantra}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      USE_OFFLINE_LLM: ${USE_OFFLINE_LLM:-False}
+      OLLAMA_BASE_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
+      TEMPERATURE: ${TEMPERATURE:-0.7}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    networks:
+      - swatantra-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  swatantra-network:
+    driver: bridge
