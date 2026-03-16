@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>स्वतन्त्र AI ड्यासबोर्ड</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Mukta', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        gray: {
+                            750: '#2d3748',
+                            850: '#1a202c',
+                            950: '#0d1117',
+                        },
+                        primary: {
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                        },
+                        accent: {
+                            cyan: '#06b6d4',
+                            purple: '#a855f7',
+                            green: '#10b981',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-slow': 'spin 8s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; 
+        }
+        
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(75, 85, 99, 0.4);
+        }
+        
+        .terminal-text {
+            text-shadow: 0 0 2px rgba(16, 185, 129, 0.5);
+        }
+
+        .agent-card:hover {
+            border-color: #6366f1;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased h-screen overflow-hidden flex" x-data="appData()">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 hidden md:flex">
+        <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <span class="text-xl font-bold tracking-tight text-white">स्वतन्त्र<span class="text-primary-400">AI</span></span>
+        </div>
+
+        <nav class="flex-1 px-4 py-6 space-y-1">
+            <a href="#" @click.prevent="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'bg-gray-800 text-white border-l-4 border-primary-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-r-md transition-colors">
+                <i class="fa-solid fa-grid-2 w-6 text-center mr-2"></i>
+                ड्यासबोर्ड
+            </a>
+            <a href="#" @click.prevent="activeTab = 'agents'" :class="activeTab === 'agents' ? 'bg-gray-800 text-white border-l-4 border-primary-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-r-md transition-colors">
+                <i class="fa-solid fa-robot w-6 text-center mr-2"></i>
+                मेरा एजेन्टहरू
+                <span class="ml-auto bg-gray-800 text-gray-300 py-0.5 px-2 rounded-full text-xs" x-text="agents.length"></span>
+            </a>
+            <a href="#" @click.prevent="activeTab = 'tasks'" :class="activeTab === 'tasks' ? 'bg-gray-800 text-white border-l-4 border-primary-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-r-md transition-colors">
+                <i class="fa-solid fa-list-check w-6 text-center mr-2"></i>
+                कार्य सूची
+            </a>
+            <a href="#" @click.prevent="activeTab = 'analytics'" :class="activeTab === 'analytics' ? 'bg-gray-800 text-white border-l-4 border-primary-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-r-md transition-colors">
+                <i class="fa-solid fa-chart-line w-6 text-center mr-2"></i>
+                विश्लेषण
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-gray-800">
+            <div class="flex items-center">
+                <img class="h-9 w-9 rounded-full border border-gray-600" src="https://ui-avatars.com/api/?name=Admin+User&background=4f46e5&color=fff" alt="User">
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-white">प्रशासक प्रयोगकर्ता</p>
+                    <p class="text-xs text-gray-400">प्रो योजना</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        <!-- Top Bar -->
+        <header class="h-16 bg-gray-900/50 backdrop-blur-md border-b border-gray-800 flex items-center justify-between px-6 sticky top-0 z-10">
+            <div class="flex items-center md:hidden">
+                <button class="text-gray-400 hover:text-white focus:outline-none">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <span class="ml-3 text-lg font-bold">स्वतन्त्र</span>
+            </div>
+
+            <div class="hidden md:flex items-center text-sm text-gray-400">
+                <span class="flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                    प्रणाली सञ्चालनमा छ
+                </span>
+                <span class="mx-4 text-gray-700">|</span>
+                <span>लेटेन्सी: २४ms</span>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <button class="relative p-2 text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-gray-900"></span>
+                </button>
+                <button @click="showNewAgentModal = true" class="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-lg shadow-primary-500/20 flex items-center">
+                    <i class="fa-solid fa-plus mr-2"></i>
+                    नयाँ एजेन्ट
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <main class="flex-1 overflow-y-auto p-6 relative">
+            <!-- Background decorative elements -->
+            <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+                <div class="absolute top-10 right-10 w-96 h-96 bg-primary-600/10 rounded-full blur-3xl"></div>
+                <div class="absolute bottom-10 left-10 w-64 h-64 bg-accent-purple/10 rounded-full blur-3xl"></div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="glass-panel rounded-xl p-5 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-400">सक्रिय एजेन्टहरू</p>
+                        <p class="text-2xl font-bold text-white mt-1" x-text="agents.filter(a => a.status === 'Active').length"></p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-5 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-400">कार्यहरू पूरा भयो</p>
+                        <p class="text-2xl font-bold text-white mt-1">१,२८४</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400">
+                        <i class="fa-solid fa-check-double"></i>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-5 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-400">कम्प्युट प्रयोग</p>
+                        <p class="text-2xl font-bold text-white mt-1">४२.५%</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                        <i class="fa-solid fa-microchip"></i>
+                    </div>
+                </div>
+                <div class="glass-panel rounded-xl p-5 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-400">जम्मा टोकनहरू</p>
+                        <p class="text-2xl font-bold text-white mt-1">८.२M</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Agents Grid -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-white">सक्रिय स्वार्म</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 text-xs font-medium bg-gray-800 text-gray-300 rounded hover:bg-gray-700">फिल्टर</button>
+                            <button class="px-3 py-1 text-xs font-medium bg-gray-800 text-gray-300 rounded hover:bg-gray-700">क्रमबद्ध गर्नुहोस्</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <template x-for="agent in agents" :key="agent.id">
+                            <div class="agent-card bg-gray-800/50 border border-gray-700 rounded-xl p-4 transition-all duration-300 cursor-pointer group">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="relative">
+                                            <img :src="agent.avatar" class="w-12 h-12 rounded-lg object-cover border border-gray-600 group-hover:border-primary-500 transition-colors">
+                                            <span class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-gray-800" 
+                                                  :class="{
+                                                      'bg-green-500': agent.status === 'Active',
+                                                      'bg-yellow-500': agent.status === 'Idle',
+                                                      'bg-red-500': agent.status === 'Error'
+                                                  }"></span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium text-white" x-text="agent.name"></h3>
+                                            <p class="text-xs text-gray-400" x-text="agent.role"></p>
+                                        </div>
+                                    </div>
+                                    <div class="px-2 py-1 rounded text-xs font-medium"
+                                         :class="{
+                                             'bg-green-500/10 text-green-400': agent.status === 'Active',
+                                             'bg-yellow-500/10 text-yellow-400': agent.status === 'Idle',
+                                             'bg-red-500/10 text-red-400': agent.status === 'Error'
+                                         }" x-text="agent.status">
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4 space-y-2">
+                                    <div class="flex justify-between text-xs text-gray-400">
+                                        <span>वर्तमान कार्य</span>
+                                        <span class="text-gray-300" x-text="agent.currentTask"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                                        <div class="bg-primary-500 h-1.5 rounded-full" :style="`width: ${agent.progress}%`"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-gray-500">
+                                        <span>प्रगति</span>
+                                        <span x-text="agent.progress + '%'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Terminal / Logs -->
+                <div class="lg:col-span-1">
+                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col h-[500px]">
+                        <div class="bg-gray-900/80 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-terminal text-gray-400 text-sm"></i>
+                                <span class="text-sm font-mono text-gray-300">प्रणाली लगहरू</span>
+                            </div>
+                            <div class="flex space-x-1.5">
+                                <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                            </div>
+                        </div>
+                        <div class="flex-1 bg-gray-950 p-4 font-mono text-xs overflow-y-auto space-y-2" id="terminal">
+                            <template x-for="log in logs" :key="log.id">
+                                <div class="flex space-x-2 animate-fade-in">
+                                    <span class="text-gray-500" x-text="log.time"></span>
+                                    <span :class="log.type === 'info' ? 'text-blue-400' : log.type === 'success' ? 'text-green-400' : 'text-yellow-400'" x-text="log.message"></span>
+                                </div>
+                            </template>
+                            <div class="animate-pulse text-primary-400">_</div>
+                        </div>
+                        <div class="p-3 bg-gray-900 border-t border-gray-800">
+                            <div class="flex items-center bg-gray-800 rounded px-3 py-2">
+                                <span class="text-green-500 mr-2">$</span>
+                                <input type="text" placeholder="आदेश कार्यान्वयन गर्नुहोस्..." class="bg-transparent border-none focus:ring-0 text-sm text-white w-full placeholder-gray-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Agent Modal -->
+    <div x-show="showNewAgentModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div x-show="showNewAgentModal" 
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showNewAgentModal = false"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal Panel -->
+            <div x-show="showNewAgentModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full border border-gray-700">
+                
+                <div class="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-primary-900/50 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fa-solid fa-plus text-primary-400"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-white" id="modal-title">नयाँ एजेन्ट कन्फिगर गर्नुहोस्</h3>
+                            <div class="mt-4 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300">एजेन्टको नाम</label>
+                                    <input type="text" class="mt-1 block w-full bg-gray-900 border border-gray-700 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="उदाहरणका लागि: डाटा विश्लेषक अल्फा">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300">भूमिका / व्यक्तित्व</label>
+                                    <select class="mt-1 block w-full bg-gray-900 border border-gray-700 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                                        <option>साधारण सहायक</option>
+                                        <option>कोड विशेषज्ञ</option>
+                                        <option>डाटा विश्लेषक</option>
+                                        <option>सृजनात्मक लेखक</option>
+                                        <option>अनुसन्धानकर्ता</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300">प्रारम्भिक प्रम्प्ट / लक्ष्य</label>
+                                    <textarea rows="3" class="mt-1 block w-full bg-gray-900 border border-gray-700 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="एजेन्टको प्राथमिक उद्देश्य परिभाषित गर्नुहोस्..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">क्षमताहरू</label>
+                                    <div class="flex space-x-4">
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" class="form-checkbox h-4 w-4 text-primary-600 bg-gray-900 border-gray-700 rounded focus:ring-primary-500">
+                                            <span class="ml-2 text-sm text-gray-300">वेब खोजी</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" class="form-checkbox h-4 w-4 text-primary-600 bg-gray-900 border-gray-700 rounded focus:ring-primary-500">
+                                            <span class="ml-2 text-sm text-gray-300">कोड कार्यान्वयन</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" class="form-checkbox h-4 w-4 text-primary-600 bg-gray-900 border-gray-700 rounded focus:ring-primary-500">
+                                            <span class="ml-2 text-sm text-gray-300">फाइल I/O</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-900/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-700">
+                    <button type="button" @click="createAgent(); showNewAgentModal = false" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        एजेन्ट तैनाथ गर्नुहोस्
+                    </button>
+                    <button type="button" @click="showNewAgentModal = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-transparent text-base font-medium text-gray-300 hover:text-white hover:bg-gray-700 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        रद्द गर्नुहोस्
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function appData() {
+            return {
+                activeTab: 'dashboard',
+                showNewAgentModal: false,
+                avatars: [
+                    'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/1183f4396-df37-40f3-b677-dd4d1c52033a.png',
+                    'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/145684446-5976-48a7-82ea-a9014fdd7c2e.png',
+                    'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/11010f096-d4d0-49a8-a3c7-8d419044d46a.png'
+                ],
+                agents: [
+                    { id: 1, name: 'नेक्सस प्राइम', role: 'संयोजक', status: 'Active', currentTask: 'स्वार्म स्वास्थ्य निगरानी', progress: 85, avatar: 'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/1183f4396-df37-40f3-b677-dd4d1c52033a.png' },
+                    { id: 2, name: 'साइफर', role: 'सुरक्षा विश्लेषक', status: 'Active', currentTask: 'नेटवर्क पोर्ट स्क्यान गर्दै', progress: 42, avatar: 'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/145684446-5976-48a7-82ea-a9014fdd7c2e.png' },
+                    { id: 3, name: 'भानगार्ड', role: 'सेन्टिनल', status: 'Idle', currentTask: 'इनपुटको पर्खाइमा', progress: 0, avatar: 'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/11010f096-d4d0-49a8-a3c7-8d419044d46a.png' },
+                    { id: 4, name: 'स्क्राइब', role: 'सामग्री जेनरेटर', status: 'Active', currentTask: 'प्रतिवेदन v2 मस्यौदा गर्दै', progress: 67, avatar: 'https://image.qwenlm.ai/public_source/f2dddea9-2b19-4926-9653-7a2c33260934/1183f4396-df37-40f3-b677-dd4d1c52033a.png' }
+                ],
+                logs: [
+                    { id: 1, time: '१०:४२:०५', type: 'info', message: 'प्रणाली सफलतापूर्वक सुरु भयो।' },
+                    { id: 2, time: '१०:४२:१२', type: 'success', message: 'एजेन्ट "नेक्सस प्राइम" क्लस्टरसँग जोडियो।' },
+                    { id: 3, time: '१०:४३:०१', type: 'info', message: 'कार्य #४९२ साइफरलाई तोकियो।' },
+                    { id: 4, time: '१०:४४:१५', type: 'warning', message: 'नोड us-east-1 मा उच्च लेटेन्सी पत्ता लाग्यो।' },
+                    { id: 5, time: '१०:४५:३०', type: 'success', message: 'डाटा प्रोसेसिङ पूरा भयो। आउटपुट सुरक्षित गरियो।' },
+                ],
+                createAgent() {
+                    const newId = this.agents.length + 1;
+                    const randomAvatar = this.avatars[Math.floor(Math.random() * this.avatars.length)];
+                    this.agents.unshift({
+                        id: newId,
+                        name: 'नयाँ एजेन्ट ' + newId,
+                        role: 'साधारण सहायक',
+                        status: 'Active',
+                        currentTask: 'सुरुवात गर्दै...',
+                        progress: 5,
+                        avatar: randomAvatar
+                    });
+                    this.logs.unshift({
+                        id: Date.now(),
+                        time: new Date().toLocaleTimeString('ne-NP', { hour12: false }),
+                        type: 'success',
+                        message: `नयाँ एजेन्ट सफलतापूर्वक तैनाथ गरियो।`
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
