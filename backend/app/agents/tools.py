@@ -1,5 +1,4 @@
-from langchain.tools import Tool
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 import json
 import requests
 from datetime import datetime
@@ -8,54 +7,36 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# Tool definitions as dictionaries for compatibility
 def web_search(query: str) -> str:
-    """
-    Search the web for information.
-    Useful for finding current information, news, or data online.
-    """
-    try:
-        # This would integrate with a search API like SerpAPI or Google Custom Search
-        # For demo purposes, returning a placeholder
-        return f"Search results for: {query} (integration with search API needed)"
-    except Exception as e:
-        return f"Search failed: {str(e)}"
+    """Search the web for information."""
+    return f"Search results for: {query} (Integration with search API needed)"
 
 
 def execute_code(language: str, code: str) -> str:
-    """
-    Execute code snippets to perform calculations or data processing.
-    Supported languages: python, javascript, bash
-    """
-    try:
-        if language.lower() == "python":
-            # Execute Python code safely (in production, use sandboxed execution)
+    """Execute code snippets."""
+    if language.lower() == "python":
+        try:
             namespace = {}
             exec(code, namespace)
             return str(namespace.get("result", "Code executed successfully"))
-        else:
-            return f"Code execution for {language} not yet supported"
-    except Exception as e:
-        return f"Execution error: {str(e)}"
+        except Exception as e:
+            return f"Execution error: {str(e)}"
+    return f"Code execution for {language} not yet supported"
 
 
 def read_file(file_path: str) -> str:
-    """
-    Read content from a file.
-    Useful for document processing and data analysis.
-    """
+    """Read content from a file."""
     try:
         with open(file_path, 'r') as f:
             content = f.read()
-        return content[:5000]  # Limit to 5000 chars
+        return content[:5000]
     except Exception as e:
         return f"Read error: {str(e)}"
 
 
 def write_file(file_path: str, content: str) -> str:
-    """
-    Write content to a file.
-    Useful for saving results and reports.
-    """
+    """Write content to a file."""
     try:
         with open(file_path, 'w') as f:
             f.write(content)
@@ -65,23 +46,12 @@ def write_file(file_path: str, content: str) -> str:
 
 
 def get_current_datetime() -> str:
-    """
-    Get the current date and time.
-    Useful for timestamping events and scheduling.
-    """
+    """Get the current date and time."""
     return datetime.now().isoformat()
 
 
-def make_http_request(
-    method: str,
-    url: str,
-    headers: Optional[Dict[str, str]] = None,
-    body: Optional[Dict[str, Any]] = None,
-) -> str:
-    """
-    Make HTTP requests to external APIs.
-    Methods: GET, POST, PUT, DELETE
-    """
+def make_http_request(method: str, url: str, headers: Optional[Dict] = None, body: Optional[Dict] = None) -> str:
+    """Make HTTP requests to external APIs."""
     try:
         if method.upper() == "GET":
             response = requests.get(url, headers=headers)
@@ -95,16 +65,13 @@ def make_http_request(
             return f"Unsupported HTTP method: {method}"
         
         response.raise_for_status()
-        return response.text[:2000]  # Limit response
+        return response.text[:2000]
     except Exception as e:
         return f"HTTP request failed: {str(e)}"
 
 
 def analyze_data(data_type: str, data: str) -> str:
-    """
-    Analyze data and extract insights.
-    Supported types: json, csv, text
-    """
+    """Analyze data and extract insights."""
     try:
         if data_type.lower() == "json":
             parsed = json.loads(data)
@@ -120,17 +87,12 @@ def analyze_data(data_type: str, data: str) -> str:
 
 
 def document_processor(document_text: str, action: str = "summarize") -> str:
-    """
-    Process documents: summarize, extract entities, or generate insights.
-    Actions: summarize, extract_entities, generate_insights
-    """
+    """Process documents."""
     try:
         if action == "summarize":
-            # Simple summarization by taking first 3 sentences
             sentences = document_text.split('.')[:3]
             return '. '.join(sentences) + '.'
         elif action == "extract_entities":
-            # Placeholder for entity extraction
             return "Entity extraction requires NER model"
         else:
             return f"Action '{action}' not recognized"
@@ -138,55 +100,59 @@ def document_processor(document_text: str, action: str = "summarize") -> str:
         return f"Document processing error: {str(e)}"
 
 
-# Register all tools
+# Tool registry as dictionaries
+TOOLS = [
+    {
+        "name": "web_search",
+        "func": web_search,
+        "description": "Search the web for information. Input: search query"
+    },
+    {
+        "name": "execute_code",
+        "func": execute_code,
+        "description": "Execute Python code. Input: Python code snippet"
+    },
+    {
+        "name": "read_file",
+        "func": read_file,
+        "description": "Read content from a file. Input: file path"
+    },
+    {
+        "name": "write_file",
+        "func": write_file,
+        "description": "Write content to a file. Input: 'file_path\\ncontent'"
+    },
+    {
+        "name": "get_time",
+        "func": get_current_datetime,
+        "description": "Get current date and time"
+    },
+    {
+        "name": "http_request",
+        "func": make_http_request,
+        "description": "Make HTTP GET request. Input: URL"
+    },
+    {
+        "name": "analyze_data",
+        "func": analyze_data,
+        "description": "Analyze data (JSON, CSV, or text). Input: data"
+    },
+    {
+        "name": "document_processor",
+        "func": document_processor,
+        "description": "Process documents (summarize, analyze). Input: document text"
+    },
+]
+
+
 def get_default_tools() -> list:
     """Get list of default tools for agents"""
-    tools = [
-        Tool(
-            name="web_search",
-            func=web_search,
-            description="Search the web for information. Input: search query"
-        ),
-        Tool(
-            name="execute_code",
-            func=lambda x: execute_code("python", x),
-            description="Execute Python code. Input: Python code snippet"
-        ),
-        Tool(
-            name="read_file",
-            func=read_file,
-            description="Read content from a file. Input: file path"
-        ),
-        Tool(
-            name="write_file",
-            func=lambda x: write_file(x.split('\n')[0], '\n'.join(x.split('\n')[1:])),
-            description="Write content to a file. Input: 'file_path\\ncontent'"
-        ),
-        Tool(
-            name="get_time",
-            func=lambda x: get_current_datetime(),
-            description="Get current date and time"
-        ),
-        Tool(
-            name="http_request",
-            func=lambda x: make_http_request("GET", x),
-            description="Make HTTP GET request. Input: URL"
-        ),
-        Tool(
-            name="analyze_data",
-            func=lambda x: analyze_data("json", x),
-            description="Analyze data (JSON, CSV, or text). Input: data"
-        ),
-        Tool(
-            name="document_processor",
-            func=lambda x: document_processor(x, "summarize"),
-            description="Process documents (summarize, analyze). Input: document text"
-        ),
-    ]
-    return tools
+    return TOOLS
 
 
-def get_tool_by_name(name: str) -> Optional[Tool]:
+def get_tool_by_name(name: str) -> Optional[Dict]:
     """Get a tool by name"""
-    tools_dict = {tool.name: tool for tool in get_default_tools()}
-    return tools_dict.get(name)
+    for tool in TOOLS:
+        if tool["name"] == name:
+            return tool
+    return None

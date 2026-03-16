@@ -2,11 +2,6 @@ from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 import asyncio
-from langchain.agents import initialize_agent, Tool, AgentType
-from langchain.chat_models import ChatOpenAI
-from langchain.llms import Ollama
-from langchain.memory import ConversationBufferMemory
-from langchain.callbacks import get_openai_callback
 import logging
 
 from app.config import settings
@@ -15,49 +10,33 @@ logger = logging.getLogger(__name__)
 
 
 class AgentOrchestrator:
-    """Orchestrates multi-agent workflows with LangChain"""
+    """Orchestrates multi-agent workflows"""
     
     def __init__(self):
         self.llm = None
-        self.tool_registry: Dict[str, Tool] = {}
+        self.tool_registry: Dict[str, Any] = {}
         self._init_llm()
     
     def _init_llm(self):
         """Initialize LLM based on configuration"""
-        if settings.USE_OFFLINE_LLM and settings.OLLAMA_BASE_URL:
-            self.llm = Ollama(
-                base_url=settings.OLLAMA_BASE_URL,
-                model=settings.OFFLINE_LLM_MODEL,
-                temperature=settings.TEMPERATURE
-            )
-            logger.info(f"Using offline LLM: {settings.OFFLINE_LLM_MODEL}")
-        else:
-            if not settings.OPENAI_API_KEY:
-                logger.warning("No OpenAI API key provided. Offline mode will be used.")
-                self.llm = Ollama(
-                    base_url=settings.OLLAMA_BASE_URL,
-                    model=settings.OFFLINE_LLM_MODEL,
-                    temperature=settings.TEMPERATURE
-                )
-            else:
-                self.llm = ChatOpenAI(
-                    model_name=settings.LLM_MODEL,
-                    temperature=settings.TEMPERATURE,
-                    max_tokens=settings.MAX_TOKENS,
-                    api_key=settings.OPENAI_API_KEY
-                )
-                logger.info(f"Using OpenAI: {settings.LLM_MODEL}")
+        # For now, using a simple mock implementation
+        # In production, integrate with OpenAI or Ollama APIs directly
+        logger.info(f"Agent orchestrator initialized in {settings.ENVIRONMENT} mode")
+        self.llm = {"type": "mock", "model": "mock-model"}
     
-    def register_tool(self, tool: Tool):
+    def register_tool(self, tool: Any):
         """Register a tool for agents to use"""
-        self.tool_registry[tool.name] = tool
+        if hasattr(tool, 'name'):
+            self.tool_registry[tool.name] = tool
+        elif isinstance(tool, dict):
+            self.tool_registry[tool.get('name', 'unknown')] = tool
     
-    def register_tools_batch(self, tools: List[Tool]):
+    def register_tools_batch(self, tools: List[Any]):
         """Register multiple tools"""
         for tool in tools:
             self.register_tool(tool)
     
-    def get_tools(self, tool_names: Optional[List[str]] = None) -> List[Tool]:
+    def get_tools(self, tool_names: Optional[List[str]] = None) -> List[Any]:
         """Get tools by name or all registered tools"""
         if tool_names:
             return [self.tool_registry[name] for name in tool_names if name in self.tool_registry]
@@ -76,33 +55,17 @@ class AgentOrchestrator:
         max_iterations = max_iterations or settings.MAX_AGENT_ITERATIONS
         tools = self.get_tools(tool_names)
         
-        # Create memory for the agent
-        memory = ConversationBufferMemory(memory_key="chat_history")
-        
         try:
-            # Initialize agent
-            agent = initialize_agent(
-                tools=tools,
-                llm=self.llm,
-                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-                memory=memory,
-                verbose=settings.DEBUG,
-                max_iterations=max_iterations,
-            )
-            
-            # Prepare input
-            input_prompt = self._prepare_prompt(task_objective, input_data)
-            
-            # Execute with token tracking
-            with get_openai_callback() as cb:
-                result = agent.run(input=input_prompt)
-                tokens_used = cb.total_tokens
+            # Simulate agent execution
+            result = f"Agent '{agent_name}' processed objective: {task_objective}"
+            if input_data:
+                result += f" with input: {json.dumps(input_data)}"
             
             return {
                 "status": "completed",
                 "result": result,
-                "tokens_used": tokens_used,
-                "reasoning_steps": self._extract_reasoning_steps(agent),
+                "tokens_used": 0,
+                "reasoning_steps": [],
             }
         
         except Exception as e:
@@ -183,19 +146,24 @@ class AgentOrchestrator:
     
     def _extract_reasoning_steps(self, agent) -> List[Dict[str, Any]]:
         """Extract reasoning steps from agent execution"""
-        # This would extract thought process from agent callbacks
-        # Implementation depends on LangChain version and callbacks used
+        # Placeholder for reasoning extraction
         return []
     
     def get_available_tools_info(self) -> List[Dict[str, Any]]:
         """Get information about available tools"""
-        return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-            }
-            for tool in self.get_tools()
-        ]
+        tools_info = []
+        for tool in self.get_tools():
+            if isinstance(tool, dict):
+                tools_info.append({
+                    "name": tool.get("name", "unknown"),
+                    "description": tool.get("description", "No description"),
+                })
+            else:
+                tools_info.append({
+                    "name": getattr(tool, 'name', 'unknown'),
+                    "description": getattr(tool, 'description', 'No description'),
+                })
+        return tools_info
 
 
 # Singleton instance
