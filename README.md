@@ -8,3 +8,4 @@ Multi-Step Execution – Complex tasks can be handled through multiple sequentia
 Goal-Driven Behavior – The agent focuses on achieving a defined objective rather than performing a single isolated command.
 Swatantra serves as an experimental platform for building and studying Agentic AI systems, with potential applications in document processing, automation, research assistance, and intelligent workflow management.
 The long-term vision of the project is to explore how autonomous AI agents can augment human productivity and solve complex real-world problems by combining reasoning, planning, and action in a unified system.
+![alt text](image.png)
