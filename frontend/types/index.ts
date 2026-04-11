@@ -5,14 +5,14 @@ export type AgentType = 'reasoning' | 'planning' | 'execution' | 'monitoring';
 export interface Agent {
   id: number;
   name: string;
-  role: string;
-  status: AgentStatus;
-  currentTask: string;
-  progress: number;
-  avatar: string;
+  role?: string;
+  status?: AgentStatus;
+  currentTask?: string;
+  progress?: number;
+  avatar?: string;
   description?: string;
   agent_type?: AgentType;
-  tools?: string[];
+  tools?: string[] | { name: string; enabled: boolean }[];
   created_at?: string;
   updated_at?: string;
 }
@@ -33,7 +33,7 @@ export interface Task {
 }
 
 export interface Log {
-  id: number;
+  id: string;
   time: string;
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;

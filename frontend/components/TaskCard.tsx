@@ -35,14 +35,13 @@ export default function TaskCard({ task, onExecute, onCancel }: TaskCardProps) {
       </div>
 
       <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3">
-        <s{t('priority')}:{' '}
+        <span>{t('priority')}:{' '}
           <span className={`font-semibold ${priorityColor}`}>
             {task.priority}/10
           </span>
         </span>
         {task.execution_time_seconds && (
-          <span>{t('time')}tion_time_seconds && (
-          <span>समय: {task.execution_time_seconds}s</span>
+          <span>{t('time')}: {task.execution_time_seconds}s</span>
         )}
       </div>
 

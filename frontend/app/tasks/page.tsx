@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/apiClient';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Task } from '@/types';
 
-export default function TasksPage() {
+function TasksContent() {
   const { t } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,8 +51,7 @@ export default function TasksPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-black dark:text-white">{t('tasks')}</h1>
@@ -134,6 +133,13 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+    );
+}
+
+export default function TasksPage() {
+  return (
+    <Layout>
+      <TasksContent />
     </Layout>
   );
 }

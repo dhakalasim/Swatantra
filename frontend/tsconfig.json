@@ -20,9 +20,7 @@
     "jsxImportSource": "react",
     "noEmit": true,
     "types": [
-      "node",
-      "jest",
-      "@testing-library/jest-dom"
+      "node"
     ],
     "baseUrl": ".",
     "paths": {

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { useLanguage } from '@/lib/LanguageContext';
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const { t } = useLanguage();
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +26,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <h1 className="text-3xl font-bold text-black dark:text-white">{t('analytics')}</h1>
 
         {loading ? (
@@ -61,6 +60,13 @@ export default function AnalyticsPage() {
           </div>
         )}
       </div>
+    );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Layout>
+      <AnalyticsContent />
     </Layout>
   );
 }

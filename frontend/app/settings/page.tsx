@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { useLanguage } from '@/lib/LanguageContext';
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { t } = useLanguage();
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -16,8 +16,8 @@ export default function SettingsPage() {
 
   const fetchConfig = async () => {
     try {
-      const data = await apiClient.client.get('/api/config').then((res) => res.data);
-      setConfig(data);
+      // Config endpoint not available, set default config
+      setConfig({ theme: 'auto', language: 'en' });
     } catch (error) {
       console.error('Error fetching config:', error);
     } finally {
@@ -26,8 +26,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6 max-w-2xl">
+    <div className="p-6 space-y-6 max-w-2xl">
         <h1 className="text-3xl font-bold text-black dark:text-white">{t('settings')}</h1>
 
         {loading ? (
@@ -96,6 +95,13 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+    );
+}
+
+export default function SettingsPage() {
+  return (
+    <Layout>
+      <SettingsContent />
     </Layout>
   );
 }

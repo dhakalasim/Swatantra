@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/apiClient';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Agent } from '@/types';
 
-export default function AgentsPage() {
+function AgentsContent() {
   const { t } = useLanguage();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,14 +51,13 @@ export default function AgentsPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-betw dark:text-white">{t('myAgents')}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-black dark:text-white">{t('myAgents')}</h1>
           <button className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
             <i className="fa-solid fa-plus mr-2"></i>
-            {t('newAgent')}e="fa-solid fa-plus mr-2"></i>
-            नयाँ एजेन्ट
+            {t('newAgent')}
           </button>
         </div>
 
@@ -138,6 +137,13 @@ export default function AgentsPage() {
           </div>
         )}
       </div>
+    );
+}
+
+export default function AgentsPage() {
+  return (
+    <Layout>
+      <AgentsContent />
     </Layout>
   );
 }
