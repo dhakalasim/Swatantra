@@ -47,11 +47,19 @@ class OfflineSyncManager:
         """Add an operation to the sync queue"""
         conn = sqlite3.connect(self.sync_queue_db)
         cursor = conn.cursor()
-        
+
+        # `data` is often a SQLAlchemy model's __dict__, which carries an
+        # internal `_sa_instance_state` object and datetime fields that
+        # aren't JSON-serializable by default.
+        serialized_data = None
+        if data:
+            clean_data = {k: v for k, v in data.items() if not k.startswith("_")}
+            serialized_data = json.dumps(clean_data, default=str)
+
         cursor.execute("""
             INSERT INTO sync_queue (operation_type, table_name, record_id, data)
             VALUES (?, ?, ?, ?)
-        """, (operation_type, table_name, record_id, json.dumps(data) if data else None))
+        """, (operation_type, table_name, record_id, serialized_data))
         
         conn.commit()
         conn.close()

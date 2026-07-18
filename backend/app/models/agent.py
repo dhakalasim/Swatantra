@@ -3,6 +3,8 @@ from enum import Enum
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Float, ForeignKey, JSON, Enum as SQLEnum
 from sqlalchemy.orm import declarative_base, relationship
 
+from app.utils.avatar import generate_agent_avatar
+
 Base = declarative_base()
 
 
@@ -40,6 +42,11 @@ class Agent(Base):
     # Relationships
     tasks = relationship("Task", back_populates="agent", cascade="all, delete-orphan")
     executions = relationship("AgentExecution", back_populates="agent", cascade="all, delete-orphan")
+
+    @property
+    def avatar(self) -> str:
+        """Deterministic Nepali-styled SVG avatar, generated on the fly (not stored)."""
+        return generate_agent_avatar(self.name, self.agent_type)
 
 
 class Task(Base):

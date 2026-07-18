@@ -14,10 +14,7 @@ export default function Sidebar() {
   const isActive = (path: string) => pathname === path;
 
   const navItems = [
-    { href: '/', label: t('dashboard'), icon: 'fa-grid-2' },
-    { href: '/agents', label: t('myAgents'), icon: 'fa-robot' },
-    { href: '/tasks', label: t('tasks'), icon: 'fa-list-check' },
-    { href: '/analytics', label: t('analytics'), icon: 'fa-chart-line' },
+    { href: '/', label: t('dashboard'), icon: 'fa-house' },
     { href: '/settings', label: t('settings'), icon: 'fa-gear' },
   ];
 
@@ -99,18 +96,6 @@ export default function Sidebar() {
           </div>
         </button>
 
-        {/* User Profile */}
-        <div className="flex items-center space-x-3">
-          <img
-            className="h-10 w-10 rounded-full border dark:border-gray-600 border-gray-300"
-            src="https://ui-avatars.com/api/?name=Admin+User&background=4f46e5&color=fff"
-            alt="User"
-          />
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium dark:text-white text-gray-900">Admin User</p>
-            <p className="text-xs dark:text-gray-400 text-gray-500">{t('admin')}</p>
-          </div>
-        </div>
       </div>
     </aside>
   );

@@ -44,11 +44,12 @@ class AgentUpdate(BaseModel):
 class AgentResponse(AgentBase):
     id: int
     status: AgentStatus
+    avatar: Optional[str] = None
     memory: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     is_active: bool
-    
+
     class Config:
         from_attributes = True
 

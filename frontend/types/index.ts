@@ -21,9 +21,9 @@ export interface Task {
   id: number;
   title: string;
   objective: string;
-  status: TaskStatus;
-  priority: number;
-  agent_id?: number;
+  status?: TaskStatus;
+  priority?: number;
+  agent_id: number;
   input_data?: any;
   result?: any;
   error_message?: string;

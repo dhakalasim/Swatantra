@@ -18,9 +18,10 @@ export default function TaskCard({ task, onExecute, onCancel }: TaskCardProps) {
     failed: { bg: 'bg-red-500/10', text: 'text-red-400' },
   };
 
-  const colors = statusColors[task.status] || statusColors.pending;
+  const colors = statusColors[task.status || 'pending'] || statusColors.pending;
+  const priority = task.priority ?? 0;
   const priorityColor =
-    task.priority >= 8 ? 'text-red-400' : task.priority >= 5 ? 'text-yellow-400' : 'text-green-400';
+    priority >= 8 ? 'text-red-400' : priority >= 5 ? 'text-yellow-400' : 'text-green-400';
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-4 hover:dark:border-primary-500 hover:border-primary-400 transition-all">

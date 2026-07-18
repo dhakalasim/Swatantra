@@ -30,7 +30,16 @@ export default function AgentCard({ agent }: AgentCardProps) {
     },
   };
 
-  const colors = statusColors[(agent.status as keyof typeof statusColors) || 'Idle'] || statusColors.Idle;
+  // Backend returns lowercase statuses (idle/running/paused/completed/failed);
+  // map them onto the display buckets this card knows how to color.
+  const statusBucket: Record<string, keyof typeof statusColors> = {
+    idle: 'Idle',
+    running: 'Active',
+    completed: 'Active',
+    paused: 'Idle',
+    failed: 'Error',
+  };
+  const colors = statusColors[statusBucket[(agent.status || '').toLowerCase()] || 'Idle'];
 
   return (
     <div className="agent-card group">

@@ -4,6 +4,8 @@ import uuid
 from sqlalchemy.orm import Session
 import logging
 
+from app.utils.avatar import generate_agent_avatar
+
 logger = logging.getLogger(__name__)
 
 

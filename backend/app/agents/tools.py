@@ -9,8 +9,31 @@ logger = logging.getLogger(__name__)
 
 # Tool definitions as dictionaries for compatibility
 def web_search(query: str) -> str:
-    """Search the web for information."""
-    return f"Search results for: {query} (Integration with search API needed)"
+    """Search the web for information using DuckDuckGo's Instant Answer API (no key required)."""
+    try:
+        response = requests.get(
+            "https://api.duckduckgo.com/",
+            params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1},
+            timeout=8,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("AbstractText"):
+            source = data.get("AbstractSource") or "DuckDuckGo"
+            return f"{data['AbstractText']} (Source: {source})"
+
+        related = [
+            topic["Text"]
+            for topic in data.get("RelatedTopics", [])
+            if isinstance(topic, dict) and topic.get("Text")
+        ]
+        if related:
+            return "\n".join(related[:3])
+
+        return f"No direct answer found for '{query}'. Try a more specific query."
+    except requests.RequestException as e:
+        return f"Web search failed: {str(e)}"
 
 
 def execute_code(language: str, code: str) -> str:
