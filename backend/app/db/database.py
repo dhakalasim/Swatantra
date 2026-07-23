@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 import os
@@ -80,7 +80,7 @@ class DatabaseManager:
         """Check database connectivity"""
         try:
             with self.session_scope() as db:
-                db.execute("SELECT 1")
+                db.execute(text("SELECT 1"))
             return True
         except Exception as e:
             print(f"Database health check failed: {e}")

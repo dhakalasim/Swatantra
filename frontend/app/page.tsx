@@ -153,7 +153,17 @@ function AskContent() {
   const [history, setHistory] = useState<Task[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [selectedExample, setSelectedExample] = useState<Example | null>(null);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
   const agentRef = useRef<Agent | null>(null);
+
+  const toggleReasoning = (taskId: number) => {
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     apiClient
@@ -305,14 +315,27 @@ function AskContent() {
           <div className="space-y-3">
             {history.map((task) => {
               const inner = (task.result as any) || {};
-              const toolUsed = inner.tool_used as string | undefined;
-              const toolInfo = toolUsed ? TOOL_INFO[toolUsed] : undefined;
+              const toolsUsed: string[] =
+                inner.tools_used && inner.tools_used.length
+                  ? inner.tools_used
+                  : inner.tool_used
+                  ? [inner.tool_used]
+                  : [];
+              const uniqueTools = Array.from(new Set(toolsUsed));
+              const reasoningSteps: Array<{
+                step_number: number;
+                action_type: string;
+                description: string;
+                output?: { value: string };
+              }> = inner.reasoning_steps || [];
+              const engine = inner.engine as string | undefined;
               const failed = task.status === 'failed';
               const outputText = failed
                 ? task.error_message || inner.error || '—'
                 : typeof inner.result === 'string'
                 ? inner.result
                 : JSON.stringify(inner.result, null, 2);
+              const isExpanded = expandedTaskIds.has(task.id);
 
               return (
                 <div
@@ -329,10 +352,56 @@ function AskContent() {
                   >
                     {outputText}
                   </p>
-                  {toolInfo && (
-                    <p className="text-xs text-slate-500 mt-2">
-                      {toolInfo.icon} {t('viaLabel')} {toolInfo[language]}
-                    </p>
+
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {uniqueTools.map((name) => {
+                      const info = TOOL_INFO[name];
+                      return (
+                        <span key={name} className="text-xs text-slate-500">
+                          {info ? `${info.icon} ${t('viaLabel')} ${info[language]}` : name}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-2">
+                    {engine && (
+                      <span className="text-[11px] text-slate-500">
+                        {engine === 'claude' ? t('engineClaude') : t('engineRuleBased')}
+                      </span>
+                    )}
+                    {reasoningSteps.length > 0 && (
+                      <button
+                        onClick={() => toggleReasoning(task.id)}
+                        className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors ml-auto"
+                      >
+                        {isExpanded ? t('hideReasoning') : t('showReasoning')}
+                      </button>
+                    )}
+                  </div>
+
+                  {isExpanded && reasoningSteps.length > 0 && (
+                    <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                      {reasoningSteps.map((step, idx) => (
+                        <div key={idx} className="text-xs text-slate-400 flex gap-2">
+                          <span className="text-slate-600 shrink-0">
+                            {step.action_type === 'tool_call'
+                              ? '🔧'
+                              : step.action_type === 'decision'
+                              ? '🧭'
+                              : '💭'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="break-words whitespace-pre-wrap">{step.description}</p>
+                            {step.output?.value && (
+                              <p className="text-slate-600 break-words whitespace-pre-wrap mt-0.5">
+                                → {step.output.value.slice(0, 300)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               );

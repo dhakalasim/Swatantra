@@ -11,4 +11,5 @@ PyYAML==6.0.1
 tenacity==8.2.3
 typing-extensions==4.8.0
 langchain>=0.0.350
+anthropic>=0.40.0
 

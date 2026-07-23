@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
     TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.7"))
     MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "2048"))
+
+    # Anthropic (Claude) Configuration — powers the real agentic reasoning
+    # loop in app/agents/orchestrator.py. When unset, the orchestrator falls
+    # back to the honest rule-based keyword router (no real reasoning).
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
+    AGENT_EFFORT: str = os.getenv("AGENT_EFFORT", "medium")  # low | medium | high | xhigh | max
     
     # Offline LLM settings (Ollama fallback)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

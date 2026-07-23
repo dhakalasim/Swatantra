@@ -6,9 +6,14 @@ import asyncio
 import logging
 
 from app.config import settings
-from app.agents.tools import get_tool_by_name
+from app.agents.tools import get_tool_by_name, get_claude_tool_schemas
 
 logger = logging.getLogger(__name__)
+
+try:
+    import anthropic
+except ImportError:  # pragma: no cover - optional dependency until installed
+    anthropic = None
 
 
 # Keyword -> tool routing. Checked in order; first match wins. This is a
@@ -68,24 +73,39 @@ def _build_tool_params(tool_name: str, input_data: Dict[str, Any], objective: st
 class AgentOrchestrator:
     """Orchestrates agent task execution.
 
-    There is no LLM wired in (no OPENAI_API_KEY / Ollama call), so "planning"
-    here is a simple, honest rule-based router: it matches the task objective
-    against known tool keywords (or an explicit input_data['tool'] override)
-    and actually invokes the corresponding tool function.
+    When ANTHROPIC_API_KEY is configured, tasks run through a real ReAct-style
+    tool-use loop against Claude: the model reasons about the objective,
+    decides which tool(s) to call (if any), sees each tool's result, and
+    keeps iterating — genuinely chaining multiple tools per task — until it
+    produces a final answer or MAX_AGENT_ITERATIONS is reached.
+
+    Without a key (offline / no credentials), execution falls back to a
+    simple, honest rule-based router: it matches the task objective against
+    known tool keywords (or an explicit input_data['tool'] override) and
+    invokes exactly one tool. This keeps the app fully functional offline,
+    it just isn't "real" reasoning.
     """
 
     def __init__(self):
         self.llm = None
+        self.client: Optional["anthropic.Anthropic"] = None
+        self.use_claude = False
         self.tool_registry: Dict[str, Any] = {}
         self._init_llm()
 
     def _init_llm(self):
-        """Initialize LLM based on configuration"""
-        # No real LLM is wired up yet (would require OPENAI_API_KEY or an
-        # Ollama endpoint). Tool selection instead falls back to keyword
-        # routing in _select_tool below.
-        logger.info(f"Agent orchestrator initialized in {settings.ENVIRONMENT} mode")
-        self.llm = {"type": "mock", "model": "mock-model"}
+        """Initialize the reasoning engine based on configuration."""
+        if settings.ANTHROPIC_API_KEY and anthropic is not None:
+            self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            self.use_claude = True
+            self.llm = {"type": "anthropic", "model": settings.ANTHROPIC_MODEL}
+            logger.info(f"Agent orchestrator using Claude ({settings.ANTHROPIC_MODEL}) for real agentic reasoning")
+        else:
+            if settings.ANTHROPIC_API_KEY and anthropic is None:
+                logger.warning("ANTHROPIC_API_KEY is set but the 'anthropic' package is not installed — falling back to rule-based routing")
+            self.use_claude = False
+            self.llm = {"type": "mock", "model": "mock-model"}
+            logger.info(f"Agent orchestrator initialized in {settings.ENVIRONMENT} mode (no ANTHROPIC_API_KEY — rule-based fallback)")
 
     def _normalize_tool_names(self, tool_names: Optional[List[Any]]) -> Optional[List[str]]:
         """Accepts either a list of tool name strings or a list of
@@ -164,11 +184,202 @@ class AgentOrchestrator:
         input_data: Optional[Dict[str, Any]] = None,
         max_iterations: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Execute a single agent task: select a tool via keyword routing
-        (or an explicit input_data['tool'] override) and actually run it."""
+        """Execute a single agent task.
 
+        Routes to the real Claude ReAct loop when configured, otherwise to
+        the rule-based single-tool fallback.
+        """
         input_data = input_data or {}
         allowed_tool_names = self._normalize_tool_names(tool_names)
+
+        if self.use_claude:
+            return await self._execute_claude_agent(
+                task_objective=task_objective,
+                agent_name=agent_name,
+                allowed_tool_names=allowed_tool_names,
+                input_data=input_data,
+                max_iterations=max_iterations or settings.MAX_AGENT_ITERATIONS,
+            )
+
+        return self._execute_rule_based(task_objective, agent_name, allowed_tool_names, input_data)
+
+    async def _execute_claude_agent(
+        self,
+        task_objective: str,
+        agent_name: str,
+        allowed_tool_names: Optional[List[str]],
+        input_data: Dict[str, Any],
+        max_iterations: int,
+    ) -> Dict[str, Any]:
+        """Real multi-step ReAct loop: Claude decides which tool(s) to call,
+        sees each result, and keeps reasoning until it has a final answer."""
+
+        start = time.time()
+        tool_schemas = get_claude_tool_schemas(allowed_tool_names)
+
+        system_prompt = (
+            f"You are '{agent_name}', an autonomous agent in the Swatantra platform. "
+            "Break the user's objective down and use the available tools whenever they "
+            "would help — you may call multiple tools, one after another, chaining their "
+            "results together, before giving your final answer. If no tool is needed, "
+            "answer directly. Be concise and give a clear final answer once you are done."
+        )
+
+        user_content = f"Objective: {task_objective}"
+        if input_data:
+            extra = {k: v for k, v in input_data.items() if k != "tool"}
+            if extra:
+                user_content += f"\n\nAdditional context:\n{json.dumps(extra, default=str)}"
+
+        messages: List[Dict[str, Any]] = [{"role": "user", "content": user_content}]
+
+        reasoning_steps: List[Dict[str, Any]] = []
+        tools_used: List[str] = []
+        total_tokens = 0
+        step_number = 0
+
+        try:
+            for _ in range(max_iterations):
+                response = self.client.messages.create(
+                    model=settings.ANTHROPIC_MODEL,
+                    max_tokens=4096,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=tool_schemas if tool_schemas else None,
+                    output_config={"effort": settings.AGENT_EFFORT},
+                )
+
+                usage = getattr(response, "usage", None)
+                if usage:
+                    total_tokens += (usage.input_tokens or 0) + (usage.output_tokens or 0)
+
+                assistant_content = []
+                tool_use_blocks = []
+                final_text_parts = []
+
+                for block in response.content:
+                    if block.type == "text":
+                        assistant_content.append({"type": "text", "text": block.text})
+                        final_text_parts.append(block.text)
+                        if block.text.strip():
+                            step_number += 1
+                            reasoning_steps.append({
+                                "step_number": step_number,
+                                "action_type": "reasoning",
+                                "description": block.text.strip(),
+                            })
+                    elif block.type == "tool_use":
+                        assistant_content.append({
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        })
+                        tool_use_blocks.append(block)
+
+                messages.append({"role": "assistant", "content": assistant_content})
+
+                if response.stop_reason != "tool_use" or not tool_use_blocks:
+                    final_text = "\n".join(p for p in final_text_parts if p.strip()) or task_objective
+                    return {
+                        "status": "completed",
+                        "result": final_text,
+                        "tool_used": tools_used[-1] if tools_used else None,
+                        "tools_used": tools_used,
+                        "tokens_used": total_tokens,
+                        "reasoning_steps": reasoning_steps,
+                        "execution_time_seconds": round(time.time() - start, 3),
+                        "engine": "claude",
+                    }
+
+                # Execute every requested tool and feed all results back in one turn.
+                tool_results = []
+                for tool_block in tool_use_blocks:
+                    tool_name = tool_block.name
+                    tool_input = tool_block.input or {}
+                    tool = get_tool_by_name(tool_name)
+
+                    step_number += 1
+                    if not tool:
+                        error_text = f"Unknown tool '{tool_name}'"
+                        reasoning_steps.append({
+                            "step_number": step_number,
+                            "action_type": "tool_call",
+                            "description": error_text,
+                        })
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_block.id,
+                            "content": error_text,
+                            "is_error": True,
+                        })
+                        continue
+
+                    try:
+                        output = tool["func"](**tool_input)
+                        tools_used.append(tool_name)
+                        reasoning_steps.append({
+                            "step_number": step_number,
+                            "action_type": "tool_call",
+                            "description": f"Called '{tool_name}' with {tool_input}",
+                            "output": {"value": str(output)[:2000]},
+                        })
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_block.id,
+                            "content": str(output)[:8000],
+                        })
+                    except Exception as e:
+                        logger.error(f"Tool '{tool_name}' raised an error: {e}")
+                        reasoning_steps.append({
+                            "step_number": step_number,
+                            "action_type": "tool_call",
+                            "description": f"Tool '{tool_name}' raised an error: {e}",
+                        })
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_block.id,
+                            "content": f"Error: {e}",
+                            "is_error": True,
+                        })
+
+                messages.append({"role": "user", "content": tool_results})
+
+            # Ran out of iterations without a final answer.
+            return {
+                "status": "completed",
+                "result": "Reached the maximum number of reasoning steps before finishing. Try narrowing the objective.",
+                "tool_used": tools_used[-1] if tools_used else None,
+                "tools_used": tools_used,
+                "tokens_used": total_tokens,
+                "reasoning_steps": reasoning_steps,
+                "execution_time_seconds": round(time.time() - start, 3),
+                "engine": "claude",
+            }
+
+        except Exception as e:
+            logger.error(f"Claude agent execution failed: {e}")
+            return {
+                "status": "failed",
+                "error": str(e),
+                "tool_used": tools_used[-1] if tools_used else None,
+                "tools_used": tools_used,
+                "tokens_used": total_tokens,
+                "reasoning_steps": reasoning_steps,
+                "engine": "claude",
+            }
+
+    def _execute_rule_based(
+        self,
+        task_objective: str,
+        agent_name: str,
+        allowed_tool_names: Optional[List[str]],
+        input_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Select a single tool via keyword routing (or an explicit
+        input_data['tool'] override) and actually run it. Used when no
+        ANTHROPIC_API_KEY is configured."""
+
         reasoning_steps = [
             {
                 "step_number": 1,
@@ -189,8 +400,10 @@ class AgentOrchestrator:
                 "status": "completed",
                 "result": task_objective,
                 "tool_used": None,
+                "tools_used": [],
                 "tokens_used": 0,
                 "reasoning_steps": reasoning_steps,
+                "engine": "rule_based",
             }
 
         reasoning_steps.append({
@@ -215,10 +428,12 @@ class AgentOrchestrator:
                 "status": "completed",
                 "result": output,
                 "tool_used": tool_name,
+                "tools_used": [tool_name],
                 "tool_params": params,
                 "tokens_used": 0,
                 "reasoning_steps": reasoning_steps,
                 "execution_time_seconds": round(time.time() - start, 3),
+                "engine": "rule_based",
             }
 
         except Exception as e:
@@ -232,8 +447,10 @@ class AgentOrchestrator:
                 "status": "failed",
                 "error": str(e),
                 "tool_used": tool_name,
+                "tools_used": [tool_name],
                 "tokens_used": 0,
                 "reasoning_steps": reasoning_steps,
+                "engine": "rule_based",
             }
     
     async def execute_multi_agent_workflow(

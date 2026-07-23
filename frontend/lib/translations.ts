@@ -42,6 +42,10 @@ export const translations = {
     completed: 'सम्पन्न',
     failed: 'विफल',
     newTask: 'नयाँ कार्य',
+    showReasoning: 'एजेन्टको सोचाइ देखाउनुहोस्',
+    hideReasoning: 'सोचाइ लुकाउनुहोस्',
+    engineClaude: '🧠 Claude ले वास्तविक तर्कसहित सोच्यो',
+    engineRuleBased: '⚙️ नियम-आधारित मोड (अफलाइन)',
   },
   en: {
     dashboard: 'Home',
@@ -86,6 +90,10 @@ export const translations = {
     completed: 'Completed',
     failed: 'Failed',
     newTask: 'New Task',
+    showReasoning: "Show agent's reasoning",
+    hideReasoning: 'Hide reasoning',
+    engineClaude: '🧠 Reasoned live with Claude',
+    engineRuleBased: '⚙️ Rule-based mode (offline)',
   },
   hi: {
     dashboard: 'होम',
@@ -130,6 +138,10 @@ export const translations = {
     completed: 'पूर्ण',
     failed: 'विफल',
     newTask: 'नया कार्य',
+    showReasoning: 'एजेंट की सोच दिखाएं',
+    hideReasoning: 'सोच छुपाएं',
+    engineClaude: '🧠 Claude के साथ वास्तविक तर्क',
+    engineRuleBased: '⚙️ नियम-आधारित मोड (ऑफ़लाइन)',
   },
 };
 
