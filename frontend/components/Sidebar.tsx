@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useDarkMode } from '@/lib/DarkModeContext';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Language } from '@/lib/translations';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
   const { language, setLanguage, t } = useLanguage();
 
   const isActive = (path: string) => pathname === path;
@@ -80,22 +78,6 @@ export default function Sidebar() {
             </button>
           </div>
         </div>
-
-        {/* Dark Mode Toggle */}
-        <button
-          onClick={toggleDarkMode}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg dark:bg-gray-800 dark:hover:bg-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors text-sm"
-        >
-          <span className="dark:text-gray-300 text-gray-700">
-            {isDarkMode ? '🌙 ' + t('darkMode') : '☀️ ' + t('lightMode')}
-          </span>
-          <div className={`relative w-10 h-6 rounded-full transition-colors ${isDarkMode ? 'bg-primary-600' : 'bg-gray-400'}`}>
-            <div
-              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}
-            ></div>
-          </div>
-        </button>
-
       </div>
     </aside>
   );
